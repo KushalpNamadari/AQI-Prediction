@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AQI Predictor — Air Quality Index</title>
+    <meta name="description" content="Predict Air Quality Index from pollutant concentrations using a trained Random Forest model.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --black: #0a0a0a;
+            --dark: #1a1a1a;
+            --mid: #555;
+            --light: #999;
+            --border: #d0d0d0;
+            --faint: #e8e8e8;
+            --bg: #f5f5f3;
+            --white: #fff;
+            --serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+            --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+        }
+
+        html {
+            font-size: 16px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        body {
+            font-family: var(--sans);
+            background-color: var(--bg);
+            color: var(--black);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ── HEADER ── */
+        header {
+            border-bottom: 1px solid var(--border);
+            background: var(--white);
+        }
+        .header-inner {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 1.25rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+        .site-title {
+            font-family: var(--serif);
+            font-size: 1.35rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            color: var(--black);
+        }
+        .site-subtitle {
+            font-size: 0.8rem;
+            color: var(--light);
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+        }
+
+        /* ── MAIN ── */
+        main {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 3rem 2rem 4rem;
+        }
+
+        .page-heading {
+            font-family: var(--serif);
+            font-size: 2.2rem;
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            line-height: 1.2;
+            margin-bottom: 0.5rem;
+            color: var(--black);
+        }
+        .page-lead {
+            font-size: 1.05rem;
+            color: var(--mid);
+            max-width: 540px;
+            margin-bottom: 2.5rem;
+            line-height: 1.65;
+        }
+
+        /* ── FORM SECTION ── */
+        .form-section {
+            background: var(--white);
+            border: 1px solid var(--border);
+            padding: 2rem 2.25rem 2.25rem;
+            margin-bottom: 2rem;
+        }
+
+        .section-label {
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--light);
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--faint);
+        }
+
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.25rem 2rem;
+        }
+
+        .field {
+            display: flex;
+            flex-direction: column;
+        }
+        .field label {
+            font-size: 0.82rem;
+            font-weight: 500;
+            color: var(--dark);
+            margin-bottom: 0.35rem;
+        }
+        .field label .unit {
+            font-weight: 400;
+            color: var(--light);
+            font-size: 0.75rem;
+        }
+        .field input {
+            font-family: var(--sans);
+            font-size: 1rem;
+            padding: 0.6rem 0.75rem;
+            border: 1px solid var(--border);
+            background: var(--white);
+            color: var(--black);
+            outline: none;
+            transition: border-color 0.15s ease;
+        }
+        .field input:focus {
+            border-color: var(--black);
+        }
+        .field input::placeholder {
+            color: var(--light);
+        }
+        .field .hint {
+            font-size: 0.72rem;
+            color: var(--light);
+            margin-top: 0.25rem;
+        }
+
+        .form-actions {
+            margin-top: 2rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn-predict {
+            font-family: var(--sans);
+            font-size: 0.9rem;
+            font-weight: 600;
+            padding: 0.7rem 2rem;
+            background: var(--black);
+            color: var(--white);
+            border: 1px solid var(--black);
+            cursor: pointer;
+            letter-spacing: 0.02em;
+            transition: background 0.15s ease, color 0.15s ease;
+        }
+        .btn-predict:hover {
+            background: var(--white);
+            color: var(--black);
+        }
+        .btn-predict:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .btn-clear {
+            font-family: var(--sans);
+            font-size: 0.82rem;
+            color: var(--light);
+            background: none;
+            border: none;
+            cursor: pointer;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
+        .btn-clear:hover {
+            color: var(--black);
+        }
+
+        .form-error {
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: #c00;
+            display: none;
+        }
+
+        /* ── RESULT SECTION ── */
+        .result-section {
+            background: var(--white);
+            border: 1px solid var(--border);
+            padding: 2rem 2.25rem;
+            display: none;
+        }
+        .result-section.visible {
+            display: block;
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 1.5rem;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid var(--faint);
+        }
+        .result-header .section-label {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+
+        .result-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+        }
+
+        .result-card {
+            padding: 1.5rem 0;
+        }
+        .result-card:first-child {
+            padding-right: 2rem;
+            border-right: 1px solid var(--faint);
+        }
+        .result-card:last-child {
+            padding-left: 2rem;
+        }
+
+        .result-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--light);
+            margin-bottom: 0.4rem;
+        }
+        .result-value {
+            font-family: var(--serif);
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            color: var(--black);
+            line-height: 1.1;
+        }
+        .result-category {
+            font-family: var(--serif);
+            font-size: 1.6rem;
+            font-weight: 600;
+            color: var(--black);
+            line-height: 1.2;
+        }
+        .result-description {
+            margin-top: 0.4rem;
+            font-size: 0.82rem;
+            color: var(--mid);
+            line-height: 1.5;
+        }
+
+        /* ── AQI SCALE BAR ── */
+        .aqi-scale {
+            margin-top: 1.75rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid var(--faint);
+        }
+        .aqi-scale-label {
+            font-size: 0.72rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--light);
+            margin-bottom: 0.75rem;
+        }
+        .scale-bar {
+            position: relative;
+            height: 6px;
+            background: var(--faint);
+            width: 100%;
+        }
+        .scale-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            background: var(--black);
+            transition: width 0.4s ease;
+        }
+        .scale-marker {
+            position: absolute;
+            top: -4px;
+            width: 2px;
+            height: 14px;
+            background: var(--black);
+            transition: left 0.4s ease;
+        }
+        .scale-ticks {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 0.4rem;
+        }
+        .scale-ticks span {
+            font-size: 0.65rem;
+            color: var(--light);
+        }
+
+        /* ── MODEL INFO ── */
+        .model-info {
+            margin-top: 2rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--faint);
+        }
+        .model-info-row {
+            display: flex;
+            gap: 2.5rem;
+            flex-wrap: wrap;
+        }
+        .model-stat {
+            display: flex;
+            flex-direction: column;
+        }
+        .model-stat .stat-label {
+            font-size: 0.68rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--light);
+            margin-bottom: 0.15rem;
+        }
+        .model-stat .stat-value {
+            font-size: 0.95rem;
+            font-weight: 500;
+            color: var(--dark);
+        }
+
+        /* ── FOOTER ── */
+        footer {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 1.5rem 2rem 3rem;
+        }
+        .footer-text {
+            font-size: 0.75rem;
+            color: var(--light);
+            border-top: 1px solid var(--border);
+            padding-top: 1.5rem;
+        }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 680px) {
+            .input-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .page-heading {
+                font-size: 1.7rem;
+            }
+            .result-grid {
+                grid-template-columns: 1fr;
+            }
+            .result-card:first-child {
+                border-right: none;
+                padding-right: 0;
+                border-bottom: 1px solid var(--faint);
+            }
+            .result-card:last-child {
+                padding-left: 0;
+            }
+        }
+        @media (max-width: 440px) {
+            .input-grid {
+                grid-template-columns: 1fr;
+            }
+            .header-inner {
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+        }
+
+        /* ── LOADING ── */
+        .btn-predict .spinner {
+            display: none;
+            width: 14px;
+            height: 14px;
+            border: 2px solid var(--white);
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 0.5rem;
+        }
+        .btn-predict.loading .spinner {
+            display: inline-block;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="header-inner">
+        <span class="site-title">AQI Predictor</span>
+    </div>
+</header>
+
+<main>
+    <h1 class="page-heading">Predict Air Quality Index</h1>
+    <p class="page-lead">Enter pollutant concentrations measured at a monitoring station. The model returns a predicted AQI value and its category.</p>
+
+    <div class="form-section">
+        <div class="section-label">Pollutant Concentrations</div>
+        <form id="predictForm">
+            <div class="input-grid">
+                <div class="field">
+                    <label for="pm25">PM2.5 <span class="unit">µg/m³</span></label>
+                    <input type="number" id="pm25" name="pm25" step="0.01" placeholder="e.g. 40" required>
+                    <!-- <span class="hint" id="hint-pm25"></span> -->
+                </div>
+                <div class="field">
+                    <label for="pm10">PM10 <span class="unit">µg/m³</span></label>
+                    <input type="number" id="pm10" name="pm10" step="0.01" placeholder="e.g. 100" required>
+                    <!-- <span class="hint" id="hint-pm10"></span> -->
+                </div>
+                <div class="field">
+                    <label for="no2">NO₂ <span class="unit">ppb</span></label>
+                    <input type="number" id="no2" name="no2" step="0.01" placeholder="e.g. 40" required>
+                    <!-- <span class="hint" id="hint-no2"></span> -->
+                </div>
+                <div class="field">
+                    <label for="so2">SO₂ <span class="unit">ppb</span></label>
+                    <input type="number" id="so2" name="so2" step="0.01" placeholder="e.g. 12" required>
+                    <!-- <span class="hint" id="hint-so2"></span> -->
+                </div>
+                <div class="field">
+                    <label for="co">CO <span class="unit">mg/m³</span></label>
+                    <input type="number" id="co" name="co" step="0.01" placeholder="e.g. 1.2" required>
+                    <!-- <span class="hint" id="hint-co"></span> -->
+                </div>
+                <div class="field">
+                    <label for="o3">O₃ <span class="unit">ppb</span></label>
+                    <input type="number" id="o3" name="o3" step="0.01" placeholder="e.g. 35" required>
+                    <!-- <span class="hint" id="hint-o3"></span> -->
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn-predict" id="btnPredict">
+                    <span class="spinner"></span>
+                    Predict
+                </button>
+                <button type="button" class="btn-clear" id="btnClear">Clear all</button>
+            </div>
+
+            <div class="form-error" id="formError"></div>
+        </form>
+    </div>
+
+    <div class="result-section" id="resultSection">
+        <div class="result-header">
+            <div class="section-label">Prediction Result</div>
+        </div>
+
+        <div class="result-grid">
+            <div class="result-card">
+                <div class="result-label">Predicted AQI</div>
+                <div class="result-value" id="aqiValue">—</div>
+                <div class="result-description" id="aqiDesc"></div>
+            </div>
+            <div class="result-card">
+                <div class="result-label">Category</div>
+                <div class="result-category" id="categoryValue">—</div>
+                <div class="result-description" id="categoryDesc"></div>
+            </div>
+        </div>
+
+        <div class="aqi-scale">
+            <div class="aqi-scale-label">AQI Scale Position</div>
+            <div class="scale-bar">
+                <div class="scale-fill" id="scaleFill" style="width: 0%"></div>
+                <div class="scale-marker" id="scaleMarker" style="left: 0%"></div>
+            </div>
+            <div class="scale-ticks">
+                <span>0</span>
+                <span>50</span>
+                <span>100</span>
+                <span>150</span>
+                <span>200</span>
+                <span>300</span>
+                <span>500</span>
+            </div>
+        </div>
+
+        <div class="model-info" id="modelInfo"></div>
+    </div>
+</main>
+
+<footer>
+</footer>
+
+<script>
+    const API_BASE = window.location.origin;
+
+    const CATEGORY_INFO = {
+        "Good": "Air quality is satisfactory with little or no risk.",
+        "Moderate": "Acceptable air quality. Some pollutants may be a concern for sensitive individuals.",
+        "Unhealthy for Sensitive Groups": "Members of sensitive groups may experience health effects.",
+        "Unhealthy": "Everyone may begin to experience health effects.",
+        "Very Unhealthy": "Health alert — everyone may experience more serious health effects.",
+        "Hazardous": "Health warning of emergency conditions. The entire population is likely to be affected."
+    };
+
+    const FIELD_MAP = {
+        "pm25": "PM2.5",
+        "pm10": "PM10",
+        "no2": "NO2",
+        "so2": "SO2",
+        "co": "CO",
+        "o3": "O3"
+    };
+
+    // Load model stats for hints
+    async function loadStats() {
+        try {
+            const resp = await fetch(API_BASE + '/stats');
+            if (!resp.ok) return;
+            const stats = await resp.json();
+
+            // Populate range hints
+            if (stats.ranges) {
+                for (const [fieldId, apiKey] of Object.entries(FIELD_MAP)) {
+                    const range = stats.ranges[apiKey];
+                    if (range) {
+                        const hintEl = document.getElementById('hint-' + fieldId);
+                        if (hintEl) {
+                            hintEl.textContent = `Range in dataset: ${range.min} – ${range.max}`;
+                        }
+                    }
+                }
+            }
+
+            // Populate model info section
+            if (stats.r2 !== undefined) {
+                const infoEl = document.getElementById('modelInfo');
+                infoEl.innerHTML = `
+                    <div class="model-info-row">
+                        <div class="model-stat">
+                            <span class="stat-label">R² Score</span>
+                            <span class="stat-value">${stats.r2}</span>
+                        </div>
+                        <div class="model-stat">
+                            <span class="stat-label">RMSE</span>
+                            <span class="stat-value">${stats.rmse}</span>
+                        </div>
+                        <div class="model-stat">
+                            <span class="stat-label">Classification Acc.</span>
+                            <span class="stat-value">${(stats.classification_accuracy * 100).toFixed(1)}%</span>
+                        </div>
+                        <div class="model-stat">
+                            <span class="stat-label">Training Samples</span>
+                            <span class="stat-value">${stats.sample_count.toLocaleString()}</span>
+                        </div>
+                    </div>
+                `;
+            }
+        } catch (e) {
+            // Stats are optional, don't block anything
+        }
+    }
+
+    function getAqiScalePercent(aqi) {
+        // Map AQI 0-500 onto the scale. Clamp to 0-100%.
+        const clamped = Math.max(0, Math.min(500, aqi));
+        return (clamped / 500) * 100;
+    }
+
+    function getAqiDescription(aqi) {
+        if (aqi <= 50) return "Air quality is good.";
+        if (aqi <= 100) return "Air quality is acceptable.";
+        if (aqi <= 150) return "Unhealthy for sensitive groups.";
+        if (aqi <= 200) return "Unhealthy for general population.";
+        if (aqi <= 300) return "Very unhealthy — health alert.";
+        return "Hazardous — emergency conditions.";
+    }
+
+    // Form submission
+    document.getElementById('predictForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const btn = document.getElementById('btnPredict');
+        const errorDiv = document.getElementById('formError');
+        const resultSection = document.getElementById('resultSection');
+
+        errorDiv.style.display = 'none';
+        btn.classList.add('loading');
+        btn.disabled = true;
+
+        const data = {};
+        for (const [fieldId, apiKey] of Object.entries(FIELD_MAP)) {
+            const val = document.getElementById(fieldId).value;
+            if (val === '' || isNaN(parseFloat(val))) {
+                errorDiv.textContent = `Please enter a valid number for ${apiKey}.`;
+                errorDiv.style.display = 'block';
+                btn.classList.remove('loading');
+                btn.disabled = false;
+                return;
+            }
+            data[apiKey] = parseFloat(val);
+        }
+
+        try {
+            const response = await fetch(API_BASE + '/predict', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || 'Server returned an error.');
+            }
+
+            const result = await response.json();
+
+            // Populate results
+            document.getElementById('aqiValue').textContent = result.predicted_aqi.toFixed(1);
+            document.getElementById('aqiDesc').textContent = getAqiDescription(result.predicted_aqi);
+            document.getElementById('categoryValue').textContent = result.predicted_category;
+            document.getElementById('categoryDesc').textContent = CATEGORY_INFO[result.predicted_category] || '';
+
+            // Update scale bar
+            const pct = getAqiScalePercent(result.predicted_aqi);
+            document.getElementById('scaleFill').style.width = pct + '%';
+            document.getElementById('scaleMarker').style.left = pct + '%';
+
+            resultSection.classList.add('visible');
+            resultSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+        } catch (err) {
+            errorDiv.textContent = err.message;
+            errorDiv.style.display = 'block';
+        } finally {
+            btn.classList.remove('loading');
+            btn.disabled = false;
+        }
+    });
+
+    // Clear button
+    document.getElementById('btnClear').addEventListener('click', function() {
+        document.getElementById('predictForm').reset();
+        document.getElementById('resultSection').classList.remove('visible');
+        document.getElementById('formError').style.display = 'none';
+    });
+
+    // Init
+    loadStats();
+</script>
+
+</body>
+</html>
